@@ -1,8 +1,6 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
 
 import { mount } from 'enzyme'
-import sinon from 'sinon'
 
 import Transition, {
   UNMOUNTED,
@@ -12,12 +10,17 @@ import Transition, {
   EXITING,
 } from '../src/Transition'
 
-jasmine.addMatchers({
-  toExist: () => ({
-    compare: actual => ({
-      pass: actual != null,
-    }),
-  }),
+expect.extend({
+  toExist(received) {
+    const pass = received != null
+    return pass ? {
+      message: () => `expected ${received} to be null or undefined`,
+      pass: true,
+    } : {
+      message: () => `expected ${received} not to be null or undefined`,
+      pass: false,
+    }
+  },
 })
 
 describe('Transition', () => {
@@ -90,13 +93,13 @@ describe('Transition', () => {
   })
 
   it('should allow addEndListener instead of timeouts', done => {
-    let listener = sinon.spy((node, end) => setTimeout(end, 0))
+    let listener = jest.fn((node, end) => setTimeout(end, 0))
 
     let inst = mount(
       <Transition
         addEndListener={listener}
         onEntered={() => {
-          expect(listener.callCount).toEqual(1)
+          expect(listener).toHaveBeenCalledTimes(1)
           done()
         }}
       >
@@ -107,7 +110,7 @@ describe('Transition', () => {
     inst.setProps({ in: true })
   })
 
-  it('should fallback to timeous with addEndListener ', done => {
+  it('should fallback to timeouts with addEndListener', done => {
     let calledEnd = false
     let listener = (node, end) =>
       setTimeout(() => {
@@ -131,6 +134,77 @@ describe('Transition', () => {
     inst.setProps({ in: true })
   })
 
+  it('should mount/unmount immediately if not have enter/exit timeout', (done) => {
+    const wrapper = mount(
+      <Transition in={true} timeout={{}}>
+        <div />
+      </Transition>
+    )
+
+    expect(wrapper.state('status')).toEqual(ENTERED)
+    let calledAfterTimeout = false
+    setTimeout(() => {
+      calledAfterTimeout = true
+    }, 10)
+    wrapper.setProps({
+      in: false,
+      onExited() {
+        expect(wrapper.state('status')).toEqual(EXITED)
+        if (!calledAfterTimeout) {
+          return done()
+        }
+        throw new Error('wrong timeout')
+      }
+    })
+  })
+
+  describe('appearing timeout', () => {
+    it('should use enter timeout if appear not set', done => {
+      let calledBeforeEntered = false
+      setTimeout(() => {
+        calledBeforeEntered = true
+      }, 10)
+      const wrapper = mount(
+        <Transition in={true} timeout={{ enter: 20, exit: 10 }} appear>
+          <div />
+        </Transition>
+      )
+
+      wrapper.setProps({
+        onEntered() {
+          if (calledBeforeEntered) {
+            done()
+          } else {
+            throw new Error('wrong timeout')
+          }
+        },
+      })
+    })
+
+    it('should use appear timeout if appear is set', done => {
+      const wrapper = mount(
+        <Transition in={true} timeout={{ enter: 20, exit: 10, appear: 5 }} appear>
+          <div />
+        </Transition>
+      )
+
+      let isCausedLate = false
+      setTimeout(() => {
+        isCausedLate = true
+      }, 15)
+
+      wrapper.setProps({
+        onEntered() {
+          if (isCausedLate) {
+            throw new Error('wrong timeout')
+          } else {
+            done()
+          }
+        }
+      })
+    })
+  })
+
   describe('entering', () => {
     let wrapper
 
@@ -143,8 +217,9 @@ describe('Transition', () => {
     })
 
     it('should fire callbacks', done => {
-      let onEnter = sinon.spy()
-      let onEntering = sinon.spy()
+      let callOrder = []
+      let onEnter = jest.fn(() => callOrder.push('onEnter'))
+      let onEntering = jest.fn(() => callOrder.push('onEntering'))
 
       expect(wrapper.state('status')).toEqual(EXITED)
 
@@ -156,9 +231,9 @@ describe('Transition', () => {
         onEntering,
 
         onEntered() {
-          expect(onEnter.calledOnce).toEqual(true)
-          expect(onEntering.calledOnce).toEqual(true)
-          expect(onEnter.calledBefore(onEntering)).toEqual(true)
+          expect(onEnter).toHaveBeenCalledTimes(1)
+          expect(onEntering).toHaveBeenCalledTimes(1)
+          expect(callOrder).toEqual(['onEnter', 'onEntering'])
           done()
         },
       })
@@ -203,8 +278,9 @@ describe('Transition', () => {
     })
 
     it('should fire callbacks', done => {
-      let onExit = sinon.spy()
-      let onExiting = sinon.spy()
+      let callOrder = []
+      let onExit = jest.fn(() => callOrder.push('onExit'))
+      let onExiting = jest.fn(() => callOrder.push('onExiting'))
 
       expect(wrapper.state('status')).toEqual(ENTERED)
 
@@ -216,9 +292,9 @@ describe('Transition', () => {
         onExiting,
 
         onExited() {
-          expect(onExit.calledOnce).toEqual(true)
-          expect(onExiting.calledOnce).toEqual(true)
-          expect(onExit.calledBefore(onExiting)).toEqual(true)
+          expect(onExit).toHaveBeenCalledTimes(1)
+          expect(onExiting).toHaveBeenCalledTimes(1)
+          expect(callOrder).toEqual(['onExit', 'onExiting'])
           done()
         },
       })
@@ -264,7 +340,7 @@ describe('Transition', () => {
 
         return (
           <Transition
-            ref="transition"
+            ref={transition => this.transition = this.transition || transition}
             mountOnEnter
             in={this.state.in}
             timeout={10}
@@ -276,7 +352,7 @@ describe('Transition', () => {
       }
 
       getStatus = () => {
-        return this.refs.transition.state.status
+        return this.transition.state.status
       }
     }
 
@@ -325,11 +401,8 @@ describe('Transition', () => {
 
   describe('unmountOnExit', () => {
     class UnmountTransition extends React.Component {
-      constructor(props) {
-        super(props)
-
-        this.state = { in: props.initialIn }
-      }
+      divRef = React.createRef()
+      state = { in: this.props.initialIn }
 
       render() {
         const { ...props } = this.props
@@ -337,19 +410,19 @@ describe('Transition', () => {
 
         return (
           <Transition
-            ref="transition"
+            ref={transition => this.transition = this.transition || transition}
             unmountOnExit
             in={this.state.in}
             timeout={10}
             {...props}
           >
-            <div />
+            <div ref={this.divRef} />
           </Transition>
         )
       }
 
       getStatus = () => {
-        return this.refs.transition.state.status
+        return this.transition.state.status
       }
     }
 
@@ -359,7 +432,7 @@ describe('Transition', () => {
           initialIn={false}
           onEnter={() => {
             expect(wrapper.getStatus()).toEqual(EXITED)
-            expect(ReactDOM.findDOMNode(wrapper)).toExist()
+            expect(wrapper.divRef.current).toExist()
 
             done()
           }}
@@ -367,7 +440,7 @@ describe('Transition', () => {
       ).instance()
 
       expect(wrapper.getStatus()).toEqual(UNMOUNTED)
-      expect(ReactDOM.findDOMNode(wrapper)).toBeNull()
+      expect(wrapper.divRef.current).toBeNull()
 
       wrapper.setState({ in: true })
     })
@@ -379,7 +452,7 @@ describe('Transition', () => {
           onExited={() => {
             setTimeout(() => {
               expect(wrapper.getStatus()).toEqual(UNMOUNTED)
-              expect(ReactDOM.findDOMNode(wrapper)).not.toExist()
+              expect(wrapper.divRef.current).not.toExist()
               done()
             })
           }}
@@ -387,7 +460,7 @@ describe('Transition', () => {
       ).instance()
 
       expect(wrapper.getStatus()).toEqual(ENTERED)
-      expect(ReactDOM.findDOMNode(wrapper)).toExist()
+      expect(wrapper.divRef.current).toExist()
 
       wrapper.setState({ in: false })
     })

@@ -1,4 +1,4 @@
-import hasClass from 'dom-helpers/class/hasClass';
+import hasClass from 'dom-helpers/hasClass';
 import CSSTransition from '../src/CSSTransition';
 
 let React;
@@ -9,6 +9,7 @@ let TransitionGroup;
 // makes sure we're wired up correctly.
 describe('CSSTransitionGroup', () => {
   let container;
+  let consoleErrorSpy;
 
   function YoloTransition({ id, ...props }) {
     return (
@@ -28,19 +29,25 @@ describe('CSSTransitionGroup', () => {
     TransitionGroup = require('../src/TransitionGroup');
 
     container = document.createElement('div');
-    spyOn(console, 'error');
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
 
   it('should clean-up silently after the timeout elapses', () => {
-    let a = ReactDOM.render(
+    ReactDOM.render(
       <TransitionGroup enter={false}>
         <YoloTransition key="one" id="one"/>
       </TransitionGroup>,
       container,
     );
 
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
+    const transitionGroupDiv = container.childNodes[0]
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
 
     ReactDOM.render(
       <TransitionGroup enter={false}>
@@ -48,47 +55,57 @@ describe('CSSTransitionGroup', () => {
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(2);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('two');
-    expect(ReactDOM.findDOMNode(a).childNodes[1].id).toBe('one');
+
+    expect(transitionGroupDiv.childNodes.length).toBe(2);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('two');
+    expect(transitionGroupDiv.childNodes[1].id).toBe('one');
 
     jest.runAllTimers();
 
     // No warnings
-    expect(console.error.calls.count()).toBe(0);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
 
     // The leaving child has been removed
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('two');
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('two');
   });
 
   it('should keep both sets of DOM nodes around', () => {
-    let a = ReactDOM.render(
+    ReactDOM.render(
       <TransitionGroup>
         <YoloTransition key="one" id="one" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
+
+    const transitionGroupDiv = container.childNodes[0]
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+
     ReactDOM.render(
       <TransitionGroup>
         <YoloTransition key="two" id="two" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(2);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('two');
-    expect(ReactDOM.findDOMNode(a).childNodes[1].id).toBe('one');
+
+    expect(transitionGroupDiv.childNodes.length).toBe(2);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('two');
+    expect(transitionGroupDiv.childNodes[1].id).toBe('one');
   });
 
   it('should switch transitionLeave from false to true', () => {
-    let a = ReactDOM.render(
+    ReactDOM.render(
       <TransitionGroup enter={false} leave={false}>
         <YoloTransition key="one" id="one" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
+
+    const transitionGroupDiv = container.childNodes[0]
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+
     ReactDOM.render(
       <TransitionGroup enter={false} leave={false}>
         <YoloTransition key="two" id="two" />
@@ -97,16 +114,19 @@ describe('CSSTransitionGroup', () => {
     );
 
     jest.runAllTimers();
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+
     ReactDOM.render(
       <TransitionGroup enter={false} leave>
         <YoloTransition key="three" id="three" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(2);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('three');
-    expect(ReactDOM.findDOMNode(a).childNodes[1].id).toBe('two');
+
+    expect(transitionGroupDiv.childNodes.length).toBe(2);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('three');
+    expect(transitionGroupDiv.childNodes[1].id).toBe('two');
   });
 
 
@@ -142,41 +162,51 @@ describe('CSSTransitionGroup', () => {
   });
 
   it('should transition from one to null', () => {
-    let a = ReactDOM.render(
+    ReactDOM.render(
       <TransitionGroup>
         <YoloTransition key="one" id="one" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
+
+    const transitionGroupDiv = container.childNodes[0]
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+
     ReactDOM.render(
       <TransitionGroup>
         {null}
       </TransitionGroup>,
       container,
     );
+
     // (Here, we expect the original child to stick around but test that no
     // exception is thrown)
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('one');
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('one');
   });
 
   it('should transition from false to one', () => {
-    let a = ReactDOM.render(
+    ReactDOM.render(
       <TransitionGroup>
         {false}
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(0);
+
+    const transitionGroupDiv = container.childNodes[0]
+
+    expect(transitionGroupDiv.childNodes.length).toBe(0);
+
     ReactDOM.render(
       <TransitionGroup>
         <YoloTransition key="one" id="one" />
       </TransitionGroup>,
       container,
     );
-    expect(ReactDOM.findDOMNode(a).childNodes.length).toBe(1);
-    expect(ReactDOM.findDOMNode(a).childNodes[0].id).toBe('one');
+
+    expect(transitionGroupDiv.childNodes.length).toBe(1);
+    expect(transitionGroupDiv.childNodes[0].id).toBe('one');
   });
 
   it('should clear transition timeouts when unmounted', () => {
@@ -267,9 +297,11 @@ describe('CSSTransitionGroup', () => {
       }
     }
 
-    const a = ReactDOM.render(<Component />, container);
-    const child = ReactDOM.findDOMNode(a).childNodes[0];
-    expect(hasClass(child, extraClassNameProp)).toBe(true);
+    ReactDOM.render(<Component />, container);
+    const transitionGroupDiv = container.childNodes[0]
+    transitionGroupDiv.childNodes.forEach(child => {
+      expect(hasClass(child, extraClassNameProp)).toBe(true);
+    })
 
     // Testing that no exception is thrown here, as the timeout has been cleared.
     jest.runAllTimers();

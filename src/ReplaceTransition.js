@@ -1,17 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import { findDOMNode } from 'react-dom'
+import ReactDOM from 'react-dom'
 import TransitionGroup from './TransitionGroup';
-
-const propTypes = {
-  in: PropTypes.bool.isRequired,
-  children(props, propName) {
-    if (React.Children.count(props[propName]) !== 2)
-      return new Error(`"${propName}" must be exactly two transition components.`)
-
-    return null;
-  },
-};
 
 /**
  * The `<ReplaceTransition>` component is a specialized `Transition` component
@@ -38,7 +28,7 @@ class ReplaceTransition extends React.Component {
     const child = React.Children.toArray(children)[idx];
 
     if (child.props[handler]) child.props[handler](...originalArgs)
-    if (this.props[handler]) this.props[handler](findDOMNode(this))
+    if (this.props[handler]) this.props[handler](ReactDOM.findDOMNode(this))
   }
 
   render() {
@@ -78,6 +68,14 @@ class ReplaceTransition extends React.Component {
   }
 }
 
-ReplaceTransition.propTypes = propTypes;
+ReplaceTransition.propTypes = {
+  in: PropTypes.bool.isRequired,
+  children(props, propName) {
+    if (React.Children.count(props[propName]) !== 2)
+      return new Error(`"${propName}" must be exactly two transition components.`)
+
+    return null;
+  },
+};
 
 export default ReplaceTransition;

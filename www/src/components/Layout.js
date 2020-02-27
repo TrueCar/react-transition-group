@@ -1,8 +1,9 @@
 import { graphql, Link } from 'gatsby';
 import PropTypes from 'prop-types';
 import React from 'react';
+import Helmet from 'react-helmet';
 
-import { Grid, Navbar, Nav } from 'react-bootstrap';
+import { Navbar, Nav } from 'react-bootstrap';
 
 import '../css/bootstrap.scss';
 import '../css/prism-theme.scss';
@@ -20,57 +21,45 @@ const propTypes = {
       }).isRequired,
     }).isRequired,
   }).isRequired,
-  location: PropTypes.object.isRequired,
+  location: PropTypes.shape({
+    pathname: PropTypes.string.isRequired,
+  }).isRequired,
 };
 
-const NavItem = ({ active, to, children }) => (
-  <li role="presentation" className={active ? 'active' : null}>
-    <Link aria-selected={active} to={to}>
-      {children}
-    </Link>
-  </li>
+const Layout = ({ data, children }) => (
+  <>
+    <Helmet>
+      <html lang="en" />
+      <title>React Transition Group</title>
+    </Helmet>
+    <Navbar fixed="top" bg="dark" variant="dark" expand="md" collapseOnSelect>
+      <Navbar.Brand as={Link} to="/">
+        React Transition Group
+      </Navbar.Brand>
+      <Navbar.Toggle />
+      <Navbar.Collapse>
+        <Nav className="mr-auto">
+          {data.site.siteMetadata.componentPages.map(
+            ({ path, displayName }) => (
+              <Nav.Link key={path} as={Link} to={path} activeClassName="active">
+                {displayName}
+              </Nav.Link>
+            )
+          )}
+        </Nav>
+        <Nav>
+          <Nav.Link as={Link} to="/with-react-router" activeClassName="active">
+            With React Router
+          </Nav.Link>
+          <Nav.Link as={Link} to="/testing" activeClassName="active">
+            Testing
+          </Nav.Link>
+        </Nav>
+      </Navbar.Collapse>
+    </Navbar>
+    <div style={{ paddingTop: '5rem' }}>{children}</div>
+  </>
 );
-
-NavItem.propTypes = {
-  active: PropTypes.bool,
-  to: PropTypes.string.isRequired,
-};
-
-class Layout extends React.Component {
-  render() {
-    const { data, location, children } = this.props;
-    return (
-      <div>
-        <Navbar fixedTop inverse collapseOnSelect>
-          <Navbar.Header>
-            <Navbar.Brand>
-              <Link to="/">React Transition Group</Link>
-            </Navbar.Brand>
-            <Navbar.Toggle />
-          </Navbar.Header>
-          <Navbar.Collapse>
-            <Nav pullRight>
-              {data.site.siteMetadata.componentPages.map(
-                ({ path, displayName }) => (
-                  <NavItem
-                    key={path}
-                    active={path === location.pathname}
-                    to={path}
-                  >
-                    {displayName}
-                  </NavItem>
-                )
-              )}
-            </Nav>
-          </Navbar.Collapse>
-        </Navbar>
-        <Grid style={{ paddingTop: '4rem', paddingBottom: '1rem' }}>
-          {children}
-        </Grid>
-      </div>
-    );
-  }
-}
 
 Layout.propTypes = propTypes;
 
@@ -82,6 +71,7 @@ export const exposedComponentsFragment = graphql`
       componentPages {
         path
         displayName
+        codeSandboxId
       }
     }
   }
